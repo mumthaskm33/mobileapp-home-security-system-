@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+
+{% block title %}Live Monitor{% endblock %}
+
+{% block head %}
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<style>
+  /* Camera container */
+  #container {
+    position: relative;
+    width: 640px;
+    height: 480px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: #000;
+  }
+
+  /* Make it responsive */
+  #container video,
+  #container canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 640px;
+    height: 480px;
+  }
+
+  canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 640px;
+    height: 480px;
+    pointer-events: none;
+  }
+
+  /* Status */
+  #status {
+    margin-top: 15px;
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .granted {
+    color: #4ade80;
+    /* Bright Green */
+    border: 1px solid #4ade80;
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.2);
+  }
+
+  .denied {
+    color: #f87171;
+    /* Red */
+    border: 1px solid #f87171;
+    box-shadow: 0 0 10px rgba(248, 113, 113, 0.2);
+  }
+
+  /* Events */
+  .event {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 0;
+    animation: fadeIn 0.5s ease;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .event img {
+    width: 48px;
+    height: 48px;
+    margin-right: 15px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color);
+  }
+
+  .event-info {
+    font-size: 14px;
+  }
+
+  .event-info b {
+    color: var(--text-primary);
+    font-size: 15px;
+  }
+
+  .event-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .event-status.auth {
+    color: #4ade80;
+  }
+
+  .event-status.unauth {
+    color: #f87171;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 20px;">Live Surveillance</h1>
+
+<div style="display: flex; gap: 30px; flex-wrap: wrap;">
+
+  <!-- LEFT: Camera Feed -->
+  <div class="card"
+    style="flex: 2; min-width: 600px; padding: 20px; display: flex; flex-direction: column; align-items: center;">
+    <div id="container">
+      <video id="video" width="640" height="480" autoplay muted></video>
+      <canvas id="overlay" width="640" height="480"></canvas>
+    </div>
+
+    <div style="width: 100%; max-width: 640px;">
+      <div id="status" class="denied">INITIALIZING...</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Event Log -->
+  <div class="card" style="flex: 1; min-width: 300px; height: 600px; display: flex; flex-direction: column;">
+    <h3 style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 0;">
+      <i class="fas fa-history"></i> Recent Activity
+    </h3>
+    <div id="events" style="overflow-y: auto; flex: 1; padding-right: 5px;">
+      <!-- Events inserted here -->
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const video = document.getElementById("video");
+  const canvas = document.getElementById("overlay");
+  const ctx = canvas.getContext("2d");
+  const statusDiv = document.getElementById("status");
+  const eventsDiv = document.getElementById("events");
+
+  /* FORCE canvas size */
+  canvas.width = 640;
+  canvas.height = 480;
+
+  /* Camera */
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => video.srcObject = stream);
+
+  /* MediaPipe Face Detection */
+  const faceDetection = new FaceDetection({
+    locateFile: file =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+  });
+
+  faceDetection.setOptions({
+    model: "short",
+    minDetectionConfidence: 0.6
+  });
+
+  faceDetection.onResults(onResults);
+
+  /* Add event (Client side only, for live feedback) */
+  function addEvent(name, authorized, img) {
+    const div = document.createElement("div");
+    div.className = "event";
+    const statusText = authorized ? "Authorized Access" : "Unauthorized Attempt";
+    const statusClass = authorized ? "auth" : "unauth";
+
+    div.innerHTML = `
+    <img src="${img}">
+    <div class="event-info">
+      <b>${name}</b><br>
+      <span class="event-status ${statusClass}">${statusText}</span><br>
+      <span class="event-time">${new Date().toLocaleTimeString()}</span>
+    </div>
+  `;
+    eventsDiv.prepend(div);
+
+    // Keep only last 20
+    if (eventsDiv.children.length > 20) {
+      eventsDiv.removeChild(eventsDiv.lastChild);
+    }
+  }
+
+  /* State for async recognition */
+  let isProcessing = false;
+  let lastResults = []; // List of { authorized, name, box }
+
+  /* Main results - Draws every frame */
+  function onResults(results) {
+    // 1. Draw video and clear previous overlay
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!results.detections || results.detections.length === 0) {
+      statusDiv.innerText = "NO FACE DETECTED";
+      statusDiv.className = "denied"; // Default styling
+      statusDiv.style.borderColor = "var(--border-color)";
+      statusDiv.style.color = "var(--text-secondary)";
+      return;
+    }
+
+    let anyAuthorized = false;
+
+    // 2. Draw box based on Matching Result
+    // Iterate over FRONTEND detected faces
+    for (const det of results.detections) {
+      const box = det.boundingBox; // {xCenter, yCenter, width, height} (normalized)
+
+      let match = null;
+      let minDist = 0.2; // Threshold for matching logic (normalized units)
+
+      // Frontend coords (Normalized Center)
+      const fx = box.xCenter;
+      const fy = box.yCenter;
+
+      // Check each result from BACKEND
+      if (lastResults && lastResults.length > 0) {
+        for (const res of lastResults) {
+          if (!res.box) continue;
+          // Backend coords: [xmin, ymin, width, height] (Relative 0..1)
+          const [bx, by, bw, bh] = res.box;
+
+          // Backend center
+          const bcx = bx + bw / 2;
+          const bcy = by + bh / 2;
+
+          const dist = Math.sqrt(Math.pow(fx - bcx, 2) + Math.pow(fy - bcy, 2));
+
+          if (dist < minDist) {
+            match = res;
+            minDist = dist;
+          }
+        }
+      }
+
+      // If no match found, show "Scanning..."
+      const authorized = match ? match.authorized : false;
+      const name = match ? match.name : "Scanning...";
+
+      const x = (box.xCenter - box.width / 2) * 640;
+      const y = (box.yCenter - box.height / 2) * 480;
+      const w = box.width * 640;
+      const h = box.height * 480;
+
+      const color = authorized ? "#4ade80" : (name === "Scanning..." ? "#38bdf8" : "#f87171");
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, w, h);
+
+      // Label Background
+      ctx.fillStyle = color;
+      const textWidth = ctx.measureText(name).width;
+      ctx.fillRect(x, y - 25, textWidth + 10, 25);
+
+      ctx.fillStyle = "#0f172a"; // Text color on label
+      ctx.font = "bold 16px Inter, Arial";
+      ctx.fillText(name, x + 5, y - 7);
+
+      if (authorized) anyAuthorized = true;
+    }
+
+    // 3. Update Status Text
+    if (anyAuthorized) {
+      statusDiv.innerHTML = '<i class="fas fa-lock-open"></i> ACCESS GRANTED';
+      statusDiv.className = "granted";
+    } else {
+      statusDiv.innerText = "UNAUTHORIZED";
+      statusDiv.className = "denied";
+
+      // Trigger Alert Sound if faces are detected but none are authorized
+      if (results.detections.length > 0) {
+        playAlertSound();
+      }
+    }
+
+    // 4. Trigger Background Recognition (Throttle)
+    if (!isProcessing && results.detections.length > 0) {
+      isProcessing = true;
+      performRecognition();
+    }
+  }
+
+  /* Audio Alert System */
+  let audioCtx = null;
+  let lastAlertTime = 0;
+  const ALERT_COOLDOWN = 2000; // 2 seconds between beeps
+
+  function playAlertSound() {
+    const now = Date.now();
+    if (now - lastAlertTime < ALERT_COOLDOWN) return;
+    lastAlertTime = now;
+
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1); // Slide up
+
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+    console.log("ALERT: Unauthorized access detected!");
+  }
+
+  async function performRecognition() {
+    try {
+      // Capture full frame
+      const faceCanvas = document.createElement("canvas");
+      faceCanvas.width = 640;
+      faceCanvas.height = 480;
+      faceCanvas.getContext("2d").drawImage(video, 0, 0, 640, 480);
+      const imageBase64 = faceCanvas.toDataURL("image/jpeg");
+
+      const res = await fetch("/api/recognize/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageBase64 })
+      });
+      const data = await res.json();
+
+      // Update state
+      if (data.results) {
+        lastResults = data.results;
+      }
+
+      // Events - only if authorized found
+      if (data.results) {
+        for (const r of data.results) {
+          if (r.authorized) {
+            // Throttle event addition logic could be better, but this matches previous behavior
+            // Ideally check if event already added recently for this person
+            addEvent(r.name, true, imageBase64);
+          }
+        }
+      }
+
+    } catch (err) {
+      console.error("Recognition failed", err);
+    } finally {
+      isProcessing = false;
+    }
+  }
+
+  /* Camera loop */
+  const camera = new Camera(video, {
+    onFrame: async () => {
+      await faceDetection.send({ image: video });
+    },
+    width: 640,
+    height: 480
+  });
+  camera.start();
+</script>
+{% endblock %}

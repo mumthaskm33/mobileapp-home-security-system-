@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gantt Chart - Home Security System</title>
+    <!-- Include the Mermaid library -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        .mermaid {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mermaid">
+        gantt
+            title Home Security System Project Timeline (Jan - Mar 2026)
+            dateFormat  YYYY-MM-DD
+            
+            section Research & Setup
+            Define Scope & Tech Stack           :a1, 2026-01-01, 7d
+            UI/UX Design Mockups                :a2, after a1, 7d
+            
+            section AI & Backend
+            Integrate MediaPipe (Detection)     :b1, 2026-01-15, 7d
+            Integrate FaceNet (Recognition)     :b2, after b1, 9d
+            Implement Liveness (Blink)          :b3, after b2, 5d
+            
+            section API & Database
+            Setup Flask API & MySQL             :c1, 2026-02-05, 10d
+            SMTP Email Alert System             :c2, after c1, 6d
+            UDP Server Discovery                :c3, after c2, 5d
+
+            section Frontend (Flutter)
+            Setup Flutter Environment           :d1, 2026-02-05, 4d
+            Build Dashboard UI                  :d2, after d1, 10d
+            Consume REST APIs (Reg/Log)         :d3, after d2, 9d
+            
+            section Testing & Deploy
+            Component & API Testing             :e1, 2026-03-11, 4d
+            Integration & E2E Testing           :e2, after e1, 5d
+            Final Viva Presentation Prep        :e3, after e2, 3d
+    </div>
+
+</body>
+</html>

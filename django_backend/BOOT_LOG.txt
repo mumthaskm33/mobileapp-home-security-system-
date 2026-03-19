@@ -1,0 +1,40 @@
+Starting debug boot...
+Added to sys.path: C:\Users\Hevelot Packard\Downloads\pleasework
+Current CWD: C:\Users\Hevelot Packard\Downloads\pleasework\django_backend
+Python executable: C:\Users\Hevelot Packard\AppData\Local\Programs\Python\Python310\python.exe
+Attempting to import database...
+Failed to import database.
+Traceback (most recent call last):
+  File "C:\Users\Hevelot Packard\Downloads\pleasework\django_backend\debug_boot.py", line 26, in <module>
+    import database
+  File "C:\Users\Hevelot Packard\Downloads\pleasework\database.py", line 1, in <module>
+    import mysql.connector
+ModuleNotFoundError: No module named 'mysql'
+
+Attempting to import face_model...
+Failed to import face_model.
+Traceback (most recent call last):
+  File "C:\Users\Hevelot Packard\Downloads\pleasework\django_backend\debug_boot.py", line 35, in <module>
+    import face_model
+  File "C:\Users\Hevelot Packard\Downloads\pleasework\face_model.py", line 1, in <module>
+    from keras_facenet import FaceNet
+  File "C:\Users\Hevelot Packard\AppData\Local\Programs\Python\Python310\lib\site-packages\keras_facenet\__init__.py", line 4, in <module>
+    from scipy import spatial
+ModuleNotFoundError: No module named 'scipy'
+
+Attempting to load utils...
+Failed to import utils.
+Traceback (most recent call last):
+  File "C:\Users\Hevelot Packard\Downloads\pleasework\django_backend\debug_boot.py", line 43, in <module>
+    import utils
+  File "C:\Users\Hevelot Packard\Downloads\pleasework\utils.py", line 1, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+
+Attempting to setup Django...
+Failed to setup Django.
+Traceback (most recent call last):
+  File "C:\Users\Hevelot Packard\Downloads\pleasework\django_backend\debug_boot.py", line 52, in <module>
+    import django
+ModuleNotFoundError: No module named 'django'
+

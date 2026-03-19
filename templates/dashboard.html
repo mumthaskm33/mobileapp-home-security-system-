@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header">
+    <h1>Security Overview</h1>
+    <button onclick="location.reload()"
+        style="background: var(--accent-blue); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">
+        <i class="fas fa-sync-alt"></i> Refresh
+    </button>
+</div>
+
+<!-- Stats Grid -->
+<div class="grid-container">
+    <div class="card stat-card">
+        <div>
+            <div class="stat-value status-active">Active</div>
+            <div class="stat-label">System Status</div>
+        </div>
+        <i class="fas fa-server stat-icon status-active"></i>
+    </div>
+
+    <div class="card stat-card">
+        <div>
+            <!-- We could pass actual counts from backend later -->
+            <div class="stat-value" id="intruder-count">--</div>
+            <div class="stat-label">Intruders Today</div>
+        </div>
+        <i class="fas fa-exclamation-triangle stat-icon status-alert"></i>
+    </div>
+
+    <div class="card stat-card">
+        <div>
+            <div class="stat-value" id="user-count">--</div>
+            <div class="stat-label">Authorized Users</div>
+        </div>
+        <i class="fas fa-user-check stat-icon" style="color: var(--accent-blue)"></i>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-container" style="grid-template-columns: 2fr 1fr;">
+    <div class="card">
+        <h3><i class="fas fa-chart-bar"></i> Weekly Activity</h3>
+        <canvas id="activityChart" height="200"></canvas>
+    </div>
+    <div class="card">
+        <h3><i class="fas fa-history"></i> Recent Alerts</h3>
+        <div id="recent-logs" style="margin-top: 1rem;">
+            <p style="color: var(--text-secondary);">Loading logs...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Chart.js Instance
+    const ctx = document.getElementById('activityChart').getContext('2d');
+    const activityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [], // Will be populated by API
+            datasets: [{
+                label: 'Intrusions Detected',
+                data: [], // Will be populated by API
+                backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                borderColor: '#ef4444',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { stepSize: 1 } },
+                x: { grid: { display: false }, ticks: { color: '#cbd5e1' } }
+            }
+        }
+    });
+
+    function updateDashboard() {
+        fetch('/api/history')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log("API Response:", data);
+                    const logs = data.history;
+                    // Use the accurate count from backend
+                    const count = data.today_count !== undefined ? data.today_count : logs.length;
+                    document.getElementById('intruder-count').innerText = count;
+
+                    if (data.auth_count !== undefined) {
+                        document.getElementById('user-count').innerText = data.auth_count;
+                    }
+
+                    // Update Chart
+                    if (data.chart_data && data.chart_labels) {
+                        console.log("Updating Chart:", data.chart_data, data.chart_labels);
+                        activityChart.data.labels = data.chart_labels;
+                        activityChart.data.datasets[0].data = data.chart_data;
+                        activityChart.update();
+                    } else {
+                        console.warn("Missing chart data in response");
+                    }
+
+                    // Populate Recent Logs list
+                    const logsContainer = document.getElementById('recent-logs');
+                    logsContainer.innerHTML = '';
+
+                    logs.slice(0, 5).forEach(log => {
+                        const div = document.createElement('div');
+                        div.style.cssText = 'padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; font-size: 0.9rem;';
+                        div.innerHTML = `
+                            <span><i class="fas fa-walking status-alert"></i> Intruder</span>
+                            <span style="color: var(--text-secondary);">${log.time}</span>
+                        `;
+                        logsContainer.appendChild(div);
+                    });
+                }
+            })
+            .catch(err => console.error("Error fetching stats:", err));
+    }
+
+    // Initial load
+    updateDashboard();
+
+    // Auto-refresh every 5 seconds
+    setInterval(updateDashboard, 5000);
+</script>
+{% endblock %}

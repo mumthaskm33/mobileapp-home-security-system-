@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guard AI – {% block title %}Monitor{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="logo">
+            <i class="fas fa-shield-alt"></i> <span>Guard AI</span>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+                <i class="fas fa-video"></i> Live Feed
+            </a>
+            <a href="/register/" class="nav-item {% if '/register/' in request.path %}active{% endif %}">
+                <i class="fas fa-user-plus"></i> Register Face
+            </a>
+            <a href="/logs/" class="nav-item {% if '/logs/' in request.path %}active{% endif %}">
+                <i class="fas fa-list-alt"></i> Auth Logs
+            </a>
+            <a href="/authorized/" class="nav-item {% if '/authorized/' in request.path %}active{% endif %}">
+                <i class="fas fa-users-cog"></i> Authorized Users
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+
+        <div class="footer">
+            &copy; 2026 Guard AI Security Systems. All rights reserved.
+        </div>
+    </main>
+
+</body>
+
+</html>

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<h1>Register New Face</h1>
+<div style="display: flex; gap: 30px; flex-wrap: wrap;">
+    <div class="card" style="flex: 1; min-width: 400px;">
+        <video id="video" width="100%" autoplay muted
+            style="background: #000; border-radius: 12px; border: 1px solid var(--border-color); display: block; width: 100%; height: auto; max-width: 640px; aspect-ratio: 4/3; object-fit: cover;"></video>
+
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" placeholder="E.g. John Doe">
+        </div>
+
+        <button onclick="captureAndRegister()" class="btn" style="width: 100%;">
+            <i class="fas fa-camera"></i> Register Face
+        </button>
+
+        <div id="message" style="margin-top: 15px; font-weight: 500; min-height: 24px;"></div>
+    </div>
+
+    <div class="card" style="flex: 0 0 300px;">
+        <h3><i class="fas fa-info-circle"></i> Instructions</h3>
+        <ul style="padding-left: 20px; line-height: 1.6; color: var(--text-secondary);">
+            <li>Look directly at the camera.</li>
+            <li>Ensure your face is clearly visible and well-lit.</li>
+            <li>Enter your full name in the input field.</li>
+            <li>Click the <b>Register Face</b> button.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById("video");
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => video.srcObject = stream)
+        .catch(err => alert("Camera error: " + err));
+
+    async function captureAndRegister() {
+        const name = document.getElementById("name").value;
+        if (!name) {
+            alert("Please enter a name");
+            return;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 480;
+        canvas.getContext("2d").drawImage(video, 0, 0, 640, 480);
+        const image = canvas.toDataURL("image/jpeg");
+
+        const msgDiv = document.getElementById("message");
+        msgDiv.innerText = "Registering...";
+        msgDiv.style.color = "var(--accent-color)";
+
+        try {
+            const res = await fetch("/api/register/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name, image: image })
+            });
+            const data = await res.json();
+
+            if (data.status === "success") {
+                msgDiv.innerHTML = `<i class="fas fa-check-circle"></i> Success: ${data.message}`;
+                msgDiv.style.color = "#4ade80"; // Bright Green
+                document.getElementById("name").value = "";
+            } else {
+                msgDiv.innerHTML = `<i class="fas fa-times-circle"></i> Error: ${data.error}`;
+                msgDiv.style.color = "#f87171"; // Red
+            }
+        } catch (e) {
+            msgDiv.innerText = "Network Error";
+            msgDiv.style.color = "#f87171";
+        }
+    }
+</script>
+{% endblock %}
